@@ -1,4 +1,4 @@
-import { existsSync, readFileSync, writeFileSync } from "fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "fs";
 import pLimit from "p-limit";
 import { logger } from "./services/logger/index.js";
 import { getNormalizedBestiary } from "./services/normalizedBestiary/index.js";
@@ -6,6 +6,7 @@ import { getRawBestiary } from "./services/rawBestiary/index.js";
 import { generateBio } from "./services/bios/generateBio.js";
 import { wait } from "./utils/asyncUtils.js";
 import { backOff } from "exponential-backoff";
+import { downloadImages } from "../downloadImages.js";
 
 const BATCH_SIZE = 300;
 const baseDelay = 5;
@@ -126,4 +127,20 @@ async function createDatingProfiles() {
   await processBatches(batches, profiles);
 }
 
-createDatingProfiles();
+async function downloadMonsterImages() {
+  if (!existsSync("images")) {
+    logger.info("Creating images directory");
+    mkdirSync("images");
+  }
+
+  const rawBestiary = await loadRawBestiary();
+  const images = rawBestiary.filter(monster => monster.images?.length > 0).map(monster => ({
+    url: `https://5e.tools/img/${encodeURIComponent(monster.images[0].href.path)}`,
+    name: monster.name
+  }));
+
+  downloadImages(images, "images");
+}
+
+// createDatingProfiles();
+downloadMonsterImages();
