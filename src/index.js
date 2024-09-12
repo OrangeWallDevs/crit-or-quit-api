@@ -19,7 +19,7 @@ async function loadRawBestiary() {
     return JSON.parse(readFileSync("bestiary-raw.json", "utf-8"));
   } else {
     logger.warning("No previous bestiary-raw.json file, creating from 5th edition data");
-    const AVAILABLE_BESTIARIES = JSON.parse(readFileSync("placeholder.json", "utf8"));
+    const AVAILABLE_BESTIARIES = JSON.parse(readFileSync("bestiary-list.json", "utf8"));
 
     const rawBestiary = await getRawBestiary(
       Object.values(AVAILABLE_BESTIARIES).map(
@@ -112,7 +112,7 @@ async function processBatches(batches, profiles) {
   logger.info("All batches processed.");
 }
 
-async function main() {
+async function createDatingProfiles() {
   const rawBestiary = await loadRawBestiary();
   const normalizedBestiary = await loadNormalizedBestiary(rawBestiary);
   const { profiles, bestiaryToProcess } = loadOrFilterProfiles(normalizedBestiary);
@@ -126,4 +126,4 @@ async function main() {
   await processBatches(batches, profiles);
 }
 
-main();
+createDatingProfiles();
