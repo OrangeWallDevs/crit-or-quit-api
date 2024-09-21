@@ -1,10 +1,9 @@
 import { Hono } from "hono";
 import { env } from "hono/adapter";
+import { getPrisma } from "./lib/getPrisma";
 import { getRedis } from "./lib/getRedis";
 import { getSessionID } from "./lib/getSessionID";
 import { sessionIdMiddleware } from "./middleware/sessionId/sessionId.middleware";
-import { PrismaClient } from "@prisma/client/edge";
-import { withAccelerate } from "@prisma/extension-accelerate";
 
 type Environment = {
   UPSTASH_REDIS_URL: string;
@@ -22,13 +21,7 @@ app.get("/", async (c) => {
     env<Environment>(c);
 
   const redis = await getRedis(UPSTASH_REDIS_URL, UPSTASH_REDIS_TOKEN);
-  const prisma = new PrismaClient({
-    datasources: {
-      db: {
-        url: DATABASE_URL,
-      },
-    },
-  }).$extends(withAccelerate());
+  const prisma = getPrisma(DATABASE_URL);
 
   const sessionID = getSessionID(c);
   const message = await redis.get<string | null>(sessionID);
@@ -42,7 +35,7 @@ app.get("/", async (c) => {
   const response = await prisma.profile.findMany();
 
   await redis.set("collection", JSON.stringify(response.map((r) => r.id)));
-  return c.json({ profile: response[37] });
+  return c.json({ profile: response[21] });
 });
 
 export default app;
