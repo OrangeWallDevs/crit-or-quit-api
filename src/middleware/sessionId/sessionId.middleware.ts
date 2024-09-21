@@ -8,14 +8,14 @@ declare module "hono" {
   }
 }
 
-export const sessionIdMiddleware = createMiddleware(async (c, next) => {
-  const sessionID = getCookie(c, "session_id");
+export const sessionIdMiddleware = createMiddleware(async (context, next) => {
+  const sessionID = getCookie(context, "session_id");
 
   if (!sessionID) {
     const newSessionID = createSessionID();
 
-    setCookie(c, "session_id", newSessionID);
-    c.set("sessionID", newSessionID);
+    setCookie(context, "session_id", newSessionID);
+    context.set("sessionID", newSessionID);
   }
 
   await next();
