@@ -1,0 +1,23 @@
+datasource db {
+    provider = "mongodb"
+    url      = env("DATABASE_URL")
+}
+
+generator client {
+    provider = "prisma-client-js"
+}
+
+model Profile {
+    id          String      @id @map("_id") @db.ObjectId
+    name        String
+    description String
+    interests   String[]
+    image       String
+    meta        ProfileMeta
+
+    @@map("profiles")
+}
+
+type ProfileMeta {
+    originalName String
+}
