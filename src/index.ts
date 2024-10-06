@@ -9,10 +9,14 @@ type Environment = {
   SESSION_TTL: number;
 };
 
-const app = new Hono();
+export const createApp = async () => {
+  const app = new Hono();
 
-app.use(sessionIdMiddleware);
+  app.use(sessionIdMiddleware);
+  app.route("/profiles", profileApp);
 
-app.route("/profiles", profileApp);
+  return app;
+};
 
+const app = await createApp();
 export default app;
