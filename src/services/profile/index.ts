@@ -1,6 +1,7 @@
 import { PrismaClient } from "@prisma/client/edge";
 import { Redis } from "@upstash/redis";
-import { shuffle } from "../../lib/shuffle";
+import { getSessionData } from "../../lib/session/getSessionData";
+import { setSessionData } from "../../lib/session/setSessionData";
 
 export const createProfileService = (
   redis: Redis,
@@ -11,22 +12,14 @@ export const createProfileService = (
     sessionID: string,
     pageSize: number = 10
   ) => {
-    let [collection, shuffledList, currentIndex] = await redis.mget<
-      [string[], string[] | null, string | null]
-    >(["collection", `collection:${sessionID}`, `index:${sessionID}`]);
+    const { shuffledCollection, currentIndex } = await getSessionData(
+      redis,
+      sessionID
+    );
 
-    if (!shuffledList) {
-      shuffledList = shuffle(collection);
-    }
-
-    if (!currentIndex) {
-      currentIndex = "0";
-    }
-
-    const parsedIndex = parseInt(currentIndex, 10);
-    const itemsToRetrieve = shuffledList.slice(
-      parsedIndex,
-      parsedIndex + pageSize
+    const itemsToRetrieve = shuffledCollection.slice(
+      currentIndex,
+      currentIndex + pageSize
     );
 
     const prismaQuery = prisma.profile.findMany({
@@ -35,16 +28,11 @@ export const createProfileService = (
       },
     });
 
-    const redisTransaction = redis
-      .multi()
-      .mset({
-        [`collection:${sessionID}`]: shuffledList,
-        [`index:${sessionID}`]: (parsedIndex + pageSize).toString(),
-      })
-      .expire(sessionID, sessionTTL)
-      .expire(`collection:${sessionID}`, sessionTTL)
-      .expire(`index:${sessionID}`, sessionTTL)
-      .exec();
+    const redisTransaction = setSessionData(redis, sessionID, {
+      shuffledCollection,
+      currentIndex: currentIndex + pageSize,
+      ttl: sessionTTL,
+    });
 
     const [queryResult] = await Promise.allSettled([
       prismaQuery,

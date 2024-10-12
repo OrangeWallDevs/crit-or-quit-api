@@ -6,21 +6,22 @@ import { redisTestingClient } from "../../../tests/database/redis";
 import { createFakeProfiles } from "../../../tests/fixtures/profile/createProfiles";
 import { populateProfiles } from "../../../tests/helpers/populateProfiles";
 import * as shuffleUtils from "../../lib/shuffle";
+import * as getSessionUtils from "../../lib/session/getSessionData";
+import * as setSessionDataUtils from "../../lib/session/setSessionData";
 
 const FAKE_PROFILES = createFakeProfiles(100);
+const FAKE_PROFILES_IDS = FAKE_PROFILES.map((profile) => profile.id);
 
-describe.skip("Module: Profile", () => {
+describe("Module: Profile", () => {
   beforeEach(async () => {
+    vi.spyOn(getSessionUtils, "getSessionData").mockResolvedValueOnce({
+      currentIndex: 0,
+      shuffledCollection: FAKE_PROFILES_IDS,
+    });
+
     await populateProfiles(FAKE_PROFILES, {
       prisma: prismaTestingClient,
-      redis: redisTestingClient,
     });
-  });
-
-  beforeAll(async () => {
-    vi.spyOn(shuffleUtils, "shuffle").mockImplementation(
-      (collection) => collection
-    );
   });
 
   describe("GET /profiles", () => {
@@ -48,10 +49,17 @@ describe.skip("Module: Profile", () => {
       expect(profiles).toIncludeSameMembers(FAKE_PROFILES.slice(0, 5));
     });
 
-    it.only("should return subsequent profiles after first request", async () => {
+    it("should return subsequent profiles after first request", async () => {
       const app = await createApp();
 
       await app.request("/profiles", {});
+
+      vi.spyOn(getSessionUtils, "getSessionData").mockResolvedValueOnce({
+        currentIndex: 10,
+        shuffledCollection: FAKE_PROFILES.map((profile) =>
+          profile.id.toString()
+        ),
+      });
 
       const nextResponse = await app.request("/profiles", {});
       expect(nextResponse.status).toBe(200);
@@ -62,11 +70,33 @@ describe.skip("Module: Profile", () => {
       expect(profiles).toIncludeSameMembers(FAKE_PROFILES.slice(10, 20));
     });
 
-    it.todo(
-      "should return remaining profiles if requested length is greater than total profiles"
-    );
+    it("should return remaining profiles if requested length is greater than amount of available profiles", async () => {
+      const app = await createApp();
+      const response = await app.request("/profiles?pageSize=1000", {});
 
-    it.todo("should return empty list if no profiles are available");
+      expect(response.status).toBe(200);
+
+      const { profiles } = await response.json<{ profiles: Profile[] }>();
+      expect(profiles).toHaveLength(100);
+    });
+
+    it("should return empty list if no profiles are available", async () => {
+      const app = await createApp();
+
+      await app.request("/profiles?pageSize=1000", {});
+
+      vi.spyOn(getSessionUtils, "getSessionData").mockResolvedValueOnce({
+        currentIndex: 100,
+        shuffledCollection: FAKE_PROFILES_IDS,
+      });
+
+      const response = await app.request("/profiles", {});
+      expect(response.status).toBe(200);
+
+      const { profiles } = await response.json<{ profiles: Profile[] }>();
+
+      expect(profiles).toHaveLength(0);
+    });
   });
 
   describe("POST /profiles/reset", () => {
